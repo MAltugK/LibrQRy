@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Masa Rezervasyon Sayfasi</title>
+    <style>
+
+    </style>
+</head>
+<body>
+    <h1>Bos Masa Isaretleme Sayfasi</h1>
+
+    <p>QR kodu taratin ve sonucu gormek icin "QR Kodu Tarat" butonuna basin.</p>
+    <button onclick="scanQRCode()">QR Kodu Tarat</button>
+    <script>
+        async function scanQRCode() {
+            try {
+                const result = await readQRCode();
+                if (result && result.text) {
+                    changeSquareColorAndShowMessage(result.text);
+                    sendQRContentToServer(result.text);
+                }
+            } catch (error) {
+                console.error('QR kodu okunurken bir hata oluştu:', error);
+            }
+        }
+
+        async function readQRCode() {
+            return new Promise((resolve, reject) => {
+                const scanner = new Instascan.Scanner({ video: document.getElementById('qr-scanner') });
+                scanner.addListener('scan', content => {
+                    scanner.stop();
+                    resolve({ text: content });
+                });
+                Instascan.Camera.getCameras()
+                    .then(cameras => {
+                        if (cameras.length > 0) {
+                            scanner.start(cameras[0]);
+                        } else {
+                            reject('Kamera bulunamadı!');
+                        }
+                    })
+                    .catch(error => reject(error));
+            });
+        }
+
+        async function sendQRContentToServer(qrContent) {
+            try {
+                const response = await fetch('/qr-okundu-manager', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ qr_content: qrContent })
+                });
+                const data = await response.json();
+                console.log(data);
+            } catch (error) {
+                console.error('Sunucu ile iletişim hatası:', error);
+            }
+        }
+
+        async function changeSquareColorAndShowMessage(qrMessage) {
+            const square = document.getElementById('square');
+            square.style.backgroundColor = 'red';
+
+            const message = document.getElementById('message');
+            message.textContent = `QR Okundu: ${qrMessage}`;
+        }
+
+        async function waitForQRScan() {
+            let qrMessage = await checkQRStatus();
+            while (qrMessage === '') {
+                qrMessage = await checkQRStatus();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            changeSquareColorAndShowMessage(qrMessage);
+        }
+
+        waitForQRScan();
+    </script>
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+</body>
+</html>
